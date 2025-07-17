@@ -1,0 +1,24 @@
+---
+kind: common.GHWorkflow
+spec:
+  customRunners:
+    - self-hosted
+    - omni
+---
+kind: js.Protobuf
+spec:
+  baseSpecPath: /api
+  destinationRoot: src/api
+  specs:
+    - source: https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/status.proto
+      subdirectory: google/rpc/
+      genGateway: true
+    - source: https://raw.githubusercontent.com/cosi-project/specification/5c734257bfa6a3acb01417809797dbfbe0e73c71/proto/v1alpha1/resource.proto
+      subdirectory: v1alpha1
+      genGateway: true
+    - source: https://raw.githubusercontent.com/siderolabs/omni/b0f76343100033927a40ea0e604d5be8a84b3592/client/api/common/omni.proto
+      subdirectory: common
+      genGateway: true
+    - source: https://raw.githubusercontent.com/siderolabs/omni/b0f76343100033927a40ea0e604d5be8a84b3592/client/api/omni/resources/resources.proto
+      subdirectory: resources
+      genGateway: true

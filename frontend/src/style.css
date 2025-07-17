@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+html {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+* {
+  font-family: 'JetBrains Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*::-webkit-scrollbar {
+  @apply w-1.5 h-1.5;
+  background-color: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  @apply w-1.5 h-1.5 bg-naturals-N5 border border-naturals-N4 rounded;
+}
+
+.color-green {
+  --color-h: 142;
+  --color-s: 100;
+  --color-l: 49;
+}
+
+.color-red {
+  --color-h: 359;
+  --color-s: 97;
+  --color-l: 36;
+}
+
+.color-orange {
+  --color-h: 15;
+  --color-s: 90;
+  --color-l: 44;
+}
+
+.color-violet {
+  --color-h: 313;
+  --color-s: 97;
+  --color-l: 58;
+}
+
+.color-yellow {
+  --color-h: 48;
+  --color-s: 96;
+  --color-l: 50;
+}
+
+.color-cyan {
+  --color-h: 185;
+  --color-s: 100;
+  --color-l: 22;
+}
+
+.color-blue1 {
+  --color-h: 211;
+  --color-s: 76;
+  --color-l: 48;
+}
+
+.color-blue2 {
+  --color-h: 215;
+  --color-s: 100;
+  --color-l: 40;
+}
+
+.color-blue3 {
+  --color-h: 256;
+  --color-s: 81;
+  --color-l: 50;
+}
+
+.color-light1 {
+  --color-h: 0;
+  --color-s: 65;
+  --color-l: 74;
+  --lighten-by: 0;
+}
+
+.color-light2 {
+  --color-h: 13;
+  --color-s: 81;
+  --color-l: 87;
+  --lighten-by: 0;
+}
+
+.color-light3 {
+  --color-h: 48;
+  --color-s: 96;
+  --color-l: 87;
+  --lighten-by: 0;
+}
+
+.color-light4 {
+  --color-h: 128;
+  --color-s: 32;
+  --color-l: 81;
+  --lighten-by: 0;
+}
+
+.color-light5 {
+  --color-h: 184;
+  --color-s: 29;
+  --color-l: 80;
+  --lighten-by: 0;
+}
+
+.color-light6 {
+  --color-h: 208;
+  --color-s: 70;
+  --color-l: 86;
+  --lighten-by: 0;
+}
+
+.color-light7 {
+  --color-h: 257;
+  --color-s: 81;
+  --color-l: 87;
+  --lighten-by: 0;
+}
+
+
+@layer components {
+  .box {
+    @apply border;
+    --background-alpha: 0.18;
+    --border-alpha: 0.3;
+    --lighten-by: 20;
+    color: hsl(var(--color-h), calc(var(--color-s) * 1%), calc((var(--color-l) + var(--lighten-by)) * 1%));
+    background-color: hsla(var(--color-h), calc(var(--color-s) * 1%), calc((var(--color-l) + var(--lighten-by)) * 1%), var(--background-alpha));
+    border-color: hsla(var(--color-h), calc(var(--color-s) * 1%), calc((var(--color-l) + var(--lighten-by)) * 1%), var(--border-alpha));
+  }
+}

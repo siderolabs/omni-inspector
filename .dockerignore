@@ -1,0 +1,24 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2025-07-21T17:11:16Z by kres b869533-dirty.
+
+*
+!frontend/src
+!frontend/test
+!api
+!cmd
+!internal
+!frontend/*.json
+!frontend/*.toml
+!frontend/*.js
+!frontend/*.ts
+!frontend/*.html
+!frontend/*.ico
+!frontend/public
+!frontend/eslint.config.js
+!internal/frontend/frontend.go
+!go.mod
+!go.sum
+!.golangci.yml
+!README.md
+!.markdownlint.json
