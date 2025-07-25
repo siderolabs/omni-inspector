@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/signal"
 	"slices"
 	"syscall"
@@ -44,6 +45,8 @@ import (
 )
 
 func main() {
+	flag.Parse()
+
 	if err := run(); err != nil {
 		log.Fatalf("server run failed %s", err)
 	}
@@ -54,6 +57,14 @@ func main() {
 func run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	if !omniDebug {
+		log.Printf("Omni inspector can't run when Omni is not build WITH_DEBUG flag")
+
+		<-ctx.Done()
+
+		return nil
+	}
 
 	marshaller := &gateway.JSONPb{
 		MarshalOptions: protojson.MarshalOptions{
@@ -107,7 +118,7 @@ func run() error {
 		opts = append(opts, client.WithServiceAccount(serviceAccount))
 	}
 
-	opts = append(opts, client.WithOmniClientOptions(omni.WithRetryLogger(logger)))
+	opts = append(opts, client.WithOmniClientOptions(omni.WithRetryLogger(logger)), client.WithInsecureSkipTLSVerify(true))
 
 	conn, err := initConnection(omniEndpoint,
 		opts...,
@@ -197,10 +208,19 @@ func initConnection(endpoint string, opts ...client.Option) (*grpc.ClientConn, e
 	return grpc.NewClient(u.Host, grpcDialOptions...)
 }
 
-var omniEndpoint string
+var (
+	omniEndpoint string
+	omniDebug    bool
+)
 
 func init() {
-	flag.StringVar(&omniEndpoint, "endpoint", "https://localhost:8099", "Omni endpoint")
+	defaultEndpoint := os.Getenv("OMNI_ENDPOINT")
+	if defaultEndpoint == "" {
+		defaultEndpoint = "https://localhost:8099"
+	}
+
+	flag.StringVar(&omniEndpoint, "omni-endpoint", defaultEndpoint, "Omni endpoint")
+	flag.BoolVar(&omniDebug, "omni-debug", true, "hint for Omni debug mode")
 }
 
 func createServiceAccount(ctx context.Context, logger *zap.Logger) (serviceAccountKey string, err error) {
