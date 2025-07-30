@@ -134,7 +134,7 @@ func run() error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	gatewayServer := &http.Server{
-		Addr:    "localhost:12000",
+		Addr:    bindEndpoint,
 		Handler: logging.NewHandler(mux),
 	}
 
@@ -142,7 +142,7 @@ func run() error {
 		return gatewayServer.ListenAndServe()
 	})
 
-	log.Printf("the API server is running on the address 0.0.0.0:12000")
+	log.Printf("the API server is running on the address: %s", bindEndpoint)
 
 	<-ctx.Done()
 
@@ -209,6 +209,7 @@ func initConnection(endpoint string, opts ...client.Option) (*grpc.ClientConn, e
 }
 
 var (
+	bindEndpoint string
 	omniEndpoint string
 	omniDebug    bool
 )
@@ -221,6 +222,7 @@ func init() {
 
 	flag.StringVar(&omniEndpoint, "omni-endpoint", defaultEndpoint, "Omni endpoint")
 	flag.BoolVar(&omniDebug, "omni-debug", true, "hint for Omni debug mode")
+	flag.StringVar(&bindEndpoint, "bind-endpoint", "0.0.0.0:12000", "Omni Inspector endpoint")
 }
 
 func createServiceAccount(ctx context.Context, logger *zap.Logger) (serviceAccountKey string, err error) {

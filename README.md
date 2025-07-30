@@ -26,4 +26,4 @@ Run the inspector:
 _out/omni-inspector-linux-amd64
 ```
 
-The inspector will be accessable on `http://localhost:12000`.
+The inspector will be accessible on `http://localhost:12000`.
