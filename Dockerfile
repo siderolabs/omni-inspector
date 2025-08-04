@@ -2,7 +2,7 @@
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-07-21T18:32:55Z by kres b869533-dirty.
+# Generated on 2025-08-04T15:09:58Z by kres 5fb5b90.
 
 ARG JS_TOOLCHAIN
 ARG TOOLCHAIN
@@ -148,7 +148,15 @@ COPY --from=generate / /
 WORKDIR /src/cmd/omni-inspector
 ARG GO_BUILDFLAGS
 ARG GO_LDFLAGS
-RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg go build ${GO_BUILDFLAGS} -ldflags "${GO_LDFLAGS}" -o /omni-inspector-linux-amd64
+RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg GOARCH=amd64 GOOS=linux go build ${GO_BUILDFLAGS} -ldflags "${GO_LDFLAGS}" -o /omni-inspector-linux-amd64
+
+# builds omni-inspector-linux-arm64
+FROM base AS omni-inspector-linux-arm64-build
+COPY --from=generate / /
+WORKDIR /src/cmd/omni-inspector
+ARG GO_BUILDFLAGS
+ARG GO_LDFLAGS
+RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg GOARCH=arm64 GOOS=linux go build ${GO_BUILDFLAGS} -ldflags "${GO_LDFLAGS}" -o /omni-inspector-linux-arm64
 
 # runs unit-tests with race detector
 FROM base AS unit-tests-race
@@ -165,6 +173,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cach
 FROM scratch AS omni-inspector-linux-amd64
 COPY --from=omni-inspector-linux-amd64-build /omni-inspector-linux-amd64 /omni-inspector-linux-amd64
 
+FROM scratch AS omni-inspector-linux-arm64
+COPY --from=omni-inspector-linux-arm64-build /omni-inspector-linux-arm64 /omni-inspector-linux-arm64
+
 FROM scratch AS unit-tests
 COPY --from=unit-tests-run /src/coverage.txt /coverage-unit-tests.txt
 
@@ -172,6 +183,7 @@ FROM omni-inspector-linux-${TARGETARCH} AS omni-inspector
 
 FROM scratch AS omni-inspector-all
 COPY --from=omni-inspector-linux-amd64 / /
+COPY --from=omni-inspector-linux-arm64 / /
 
 FROM scratch AS image-omni-inspector
 ARG TARGETARCH

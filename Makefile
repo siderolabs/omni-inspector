@@ -1,6 +1,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-07-21T17:08:13Z by kres b869533-dirty.
+# Generated on 2025-08-04T15:09:58Z by kres 5fb5b90.
 
 # common variables
 
@@ -226,8 +226,15 @@ $(ARTIFACTS)/omni-inspector-linux-amd64:
 .PHONY: omni-inspector-linux-amd64
 omni-inspector-linux-amd64: $(ARTIFACTS)/omni-inspector-linux-amd64  ## Builds executable for omni-inspector-linux-amd64.
 
+.PHONY: $(ARTIFACTS)/omni-inspector-linux-arm64
+$(ARTIFACTS)/omni-inspector-linux-arm64:
+	@$(MAKE) local-omni-inspector-linux-arm64 DEST=$(ARTIFACTS)
+
+.PHONY: omni-inspector-linux-arm64
+omni-inspector-linux-arm64: $(ARTIFACTS)/omni-inspector-linux-arm64  ## Builds executable for omni-inspector-linux-arm64.
+
 .PHONY: omni-inspector
-omni-inspector: omni-inspector-linux-amd64  ## Builds executables for omni-inspector.
+omni-inspector: omni-inspector-linux-amd64 omni-inspector-linux-arm64  ## Builds executables for omni-inspector.
 
 .PHONY: lint-markdown
 lint-markdown:  ## Runs markdownlint.
