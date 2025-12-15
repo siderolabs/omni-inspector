@@ -1,15 +1,16 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-08-04T15:09:58Z by kres 5fb5b90.
+# Generated on 2025-12-15T12:18:08Z by kres 4b09af7.
 
 # common variables
 
 SHA := $(shell git describe --match=none --always --abbrev=8 --dirty)
 TAG := $(shell git describe --tag --always --dirty --match v[0-9]\*)
+TAG_SUFFIX ?=
 ABBREV_TAG := $(shell git describe --tags >/dev/null 2>/dev/null && git describe --tag --always --match v[0-9]\* --abbrev=0 || echo 'undefined')
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 ARTIFACTS := _out
-IMAGE_TAG ?= $(TAG)
+IMAGE_TAG ?= $(TAG)$(TAG_SUFFIX)
 OPERATING_SYSTEM := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 GOARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 WITH_DEBUG ?= false
@@ -20,21 +21,23 @@ REGISTRY_AND_USERNAME ?= $(REGISTRY)/$(USERNAME)
 PROTOBUF_GRPC_GATEWAY_TS_VERSION ?= 1.2.1
 TESTPKGS ?= ./...
 JS_BUILD_ARGS ?=
-PROTOBUF_GO_VERSION ?= 1.36.6
-GRPC_GO_VERSION ?= 1.5.1
-GRPC_GATEWAY_VERSION ?= 2.27.1
+PROTOBUF_GO_VERSION ?= 1.36.10
+GRPC_GO_VERSION ?= 1.6.0
+GRPC_GATEWAY_VERSION ?= 2.27.3
 VTPROTOBUF_VERSION ?= 0.6.0
-GOIMPORTS_VERSION ?= 0.34.0
-GOMOCK_VERSION ?= 0.5.2
-DEEPCOPY_VERSION ?= v0.5.6
-GOLANGCILINT_VERSION ?= v2.2.2
-GOFUMPT_VERSION ?= v0.8.0
-GO_VERSION ?= 1.24.5
+GOIMPORTS_VERSION ?= 0.39.0
+GOMOCK_VERSION ?= 0.6.0
+DEEPCOPY_VERSION ?= v0.5.8
+GOLANGCILINT_VERSION ?= v2.7.1
+GOFUMPT_VERSION ?= v0.9.2
+GO_VERSION ?= 1.25.5
 GO_BUILDFLAGS ?=
+GO_BUILDTAGS ?= ,
 GO_LDFLAGS ?=
 CGO_ENABLED ?= 0
 GOTOOLCHAIN ?= local
-GOEXPERIMENT ?= synctest
+GOEXPERIMENT ?=
+GO_BUILDFLAGS += -tags $(GO_BUILDTAGS)
 KRES_IMAGE ?= ghcr.io/siderolabs/kres:latest
 CONFORMANCE_IMAGE ?= ghcr.io/siderolabs/conform:latest
 
@@ -77,8 +80,8 @@ COMMON_ARGS += --build-arg=DEEPCOPY_VERSION="$(DEEPCOPY_VERSION)"
 COMMON_ARGS += --build-arg=GOLANGCILINT_VERSION="$(GOLANGCILINT_VERSION)"
 COMMON_ARGS += --build-arg=GOFUMPT_VERSION="$(GOFUMPT_VERSION)"
 COMMON_ARGS += --build-arg=TESTPKGS="$(TESTPKGS)"
-JS_TOOLCHAIN ?= docker.io/oven/bun:1.2.18-alpine
-TOOLCHAIN ?= docker.io/golang:1.24-alpine
+JS_TOOLCHAIN ?= docker.io/node:24.11.1-alpine
+TOOLCHAIN ?= docker.io/golang:1.25-alpine
 
 # help menu
 
@@ -137,7 +140,7 @@ GO_LDFLAGS += -linkmode=external -extldflags '-static'
 endif
 
 ifneq (, $(filter $(WITH_DEBUG), t true TRUE y yes 1))
-GO_BUILDFLAGS += -tags sidero.debug
+GO_BUILDTAGS := $(GO_BUILDTAGS)sidero.debug,
 else
 GO_LDFLAGS += -s
 endif
@@ -180,8 +183,11 @@ js:  ## Prepare js base toolchain.
 unit-tests-frontend:  ## Performs unit tests
 	@$(MAKE) target-$@
 
-lint-eslint:  ## Runs eslint linter.
+lint-eslint:  ## Runs eslint linter & prettier style check.
 	@$(MAKE) target-$@
+
+lint-eslint-fmt:  ## Runs eslint & prettier and tries to fix issues automatically, updating the source tree.
+	@$(MAKE) local-$@ DEST=.
 
 .PHONY: $(ARTIFACTS)/frontend-js
 $(ARTIFACTS)/frontend-js:
@@ -192,6 +198,9 @@ frontend: $(ARTIFACTS)/frontend-js  ## Builds js release for frontend.
 
 lint-golangci-lint:  ## Runs golangci-lint linter.
 	@$(MAKE) target-$@
+
+lint-golangci-lint-fmt:  ## Runs golangci-lint formatter and tries to fix issues automatically.
+	@$(MAKE) local-$@ DEST=.
 
 lint-gofumpt:  ## Runs gofumpt linter.
 	@$(MAKE) target-$@
@@ -242,6 +251,9 @@ lint-markdown:  ## Runs markdownlint.
 
 .PHONY: lint
 lint: lint-eslint lint-golangci-lint lint-gofumpt lint-govulncheck lint-markdown  ## Run all linters for the project.
+
+.PHONY: lint-fmt
+lint-fmt: lint-eslint-fmt lint-golangci-lint-fmt  ## Run all linter formatters and fix up the source tree.
 
 .PHONY: image-omni-inspector
 image-omni-inspector:  ## Builds image for omni-inspector.

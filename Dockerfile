@@ -1,18 +1,18 @@
-# syntax = docker/dockerfile-upstream:1.17.1-labs
+# syntax = docker/dockerfile-upstream:1.20.0-labs
 
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-08-04T15:09:58Z by kres 5fb5b90.
+# Generated on 2025-12-15T18:27:25Z by kres 4b09af7.
 
 ARG JS_TOOLCHAIN
-ARG TOOLCHAIN
+ARG TOOLCHAIN=scratch
 
 # cleaned up specs and compiled versions
 FROM scratch AS generate
 
-FROM ghcr.io/siderolabs/ca-certificates:v1.10.0 AS image-ca-certificates
+FROM ghcr.io/siderolabs/ca-certificates:v1.12.0 AS image-ca-certificates
 
-FROM ghcr.io/siderolabs/fhs:v1.10.0 AS image-fhs
+FROM ghcr.io/siderolabs/fhs:v1.12.0 AS image-fhs
 
 # base toolchain image
 FROM --platform=${BUILDPLATFORM} ${JS_TOOLCHAIN} AS js-toolchain
@@ -23,9 +23,9 @@ ENV GOPATH=/go
 ENV PATH=${PATH}:/usr/local/go/bin
 
 # runs markdownlint
-FROM docker.io/oven/bun:1.2.18-alpine AS lint-markdown
+FROM docker.io/oven/bun:1.3.3-alpine AS lint-markdown
 WORKDIR /src
-RUN bun i markdownlint-cli@0.45.0 sentences-per-line@0.3.0
+RUN bun i markdownlint-cli@0.46.0 sentences-per-line@0.3.0
 COPY .markdownlint.json .
 COPY ./README.md ./README.md
 RUN bunx markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ignore '**/hack/chglog/**' --rules sentences-per-line .
@@ -34,12 +34,12 @@ RUN bunx markdownlint --ignore "CHANGELOG.md" --ignore "**/node_modules/**" --ig
 FROM scratch AS proto-specs-frontend
 ADD https://raw.githubusercontent.com/googleapis/googleapis/master/google/rpc/status.proto /frontend/src/api/google/rpc/
 ADD https://raw.githubusercontent.com/cosi-project/specification/5c734257bfa6a3acb01417809797dbfbe0e73c71/proto/v1alpha1/resource.proto /frontend/src/api/v1alpha1/
-ADD https://raw.githubusercontent.com/siderolabs/omni/b0f76343100033927a40ea0e604d5be8a84b3592/client/api/common/omni.proto /frontend/src/api/common/
-ADD https://raw.githubusercontent.com/siderolabs/omni/b0f76343100033927a40ea0e604d5be8a84b3592/client/api/omni/resources/resources.proto /frontend/src/api/resources/
+ADD https://raw.githubusercontent.com/siderolabs/omni/aa6acff6329662124d925716b2d49885995acace/client/api/common/omni.proto /frontend/src/api/common/
+ADD https://raw.githubusercontent.com/siderolabs/omni/aa6acff6329662124d925716b2d49885995acace/client/api/omni/resources/resources.proto /frontend/src/api/resources/
 
 # base toolchain image
 FROM --platform=${BUILDPLATFORM} ${TOOLCHAIN} AS toolchain
-RUN apk --update --no-cache add bash curl build-base protoc protobuf-dev
+RUN apk --update --no-cache add bash build-base curl jq protoc protobuf-dev
 
 # tools and sources
 FROM --platform=${BUILDPLATFORM} js-toolchain AS js
@@ -47,20 +47,20 @@ WORKDIR /src
 ARG PROTOBUF_GRPC_GATEWAY_TS_VERSION
 RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg go install github.com/siderolabs/protoc-gen-grpc-gateway-ts@v${PROTOBUF_GRPC_GATEWAY_TS_VERSION}
 RUN mv /go/bin/protoc-gen-grpc-gateway-ts /bin
-COPY frontend/package.json ./
-RUN --mount=type=cache,target=/src/node_modules,id=omni-inspector/src/node_modules,sharing=locked bun install
-COPY frontend/tsconfig*.json ./
-COPY frontend/bunfig.toml ./
-COPY frontend/*.html ./
-COPY frontend/*.ts ./
+COPY frontend/*.json ./
 COPY frontend/*.js ./
-COPY frontend/*.ico ./
-COPY frontend/public ./
+COPY frontend/*.ts ./
+COPY frontend/*.html ./
+COPY frontend/.npmrc ./
+COPY frontend/.editorconfig ./
+COPY frontend/.gitignore ./
+COPY frontend/.prettier* ./
 COPY ./frontend/src ./src
-COPY ./frontend/test ./test
-COPY ./frontend/eslint.config.js ./eslint.config.js
-COPY ./frontend/postcss.config.js ./postcss.config.js
-COPY ./frontend/vite.config.js ./vite.config.js
+COPY ./frontend/e2e ./e2e
+COPY ./frontend/public ./public
+COPY ./frontend/msw ./msw
+COPY ./frontend/.storybook ./.storybook
+RUN --mount=type=cache,target=/root/.npm,id=omni-inspector/root/.npm,sharing=locked npm ci
 
 # build tools
 FROM --platform=${BUILDPLATFORM} toolchain AS tools
@@ -87,13 +87,17 @@ RUN go install mvdan.cc/gofumpt@${GOFUMPT_VERSION} \
 # builds frontend
 FROM --platform=${BUILDPLATFORM} js AS frontend
 ARG JS_BUILD_ARGS
-RUN --mount=type=cache,target=/src/node_modules,id=omni-inspector/src/node_modules bun run build ${JS_BUILD_ARGS}
+RUN npm run build ${JS_BUILD_ARGS}
 RUN mkdir -p /internal/frontend/dist
 RUN cp -rf ./dist/* /internal/frontend/dist
 
-# runs eslint
+# runs eslint & prettier
 FROM js AS lint-eslint
-RUN --mount=type=cache,target=/src/node_modules,id=omni-inspector/src/node_modules bun run lint
+RUN npm run lint
+
+# runs eslint & prettier with autofix.
+FROM js AS lint-eslint-fmt-run
+RUN npm run lint:fix
 
 # runs protobuf compiler
 FROM js AS proto-compile-frontend
@@ -105,8 +109,7 @@ RUN protoc -I/frontend/src/api --grpc-gateway-ts_out=source_relative:/frontend/s
 
 # runs js unit-tests
 FROM js AS unit-tests-frontend
-RUN --mount=type=cache,target=/src/node_modules,id=omni-inspector/src/node_modules,sharing=locked bun add -d @happy-dom/global-registrator
-RUN --mount=type=cache,target=/src/node_modules,id=omni-inspector/src/node_modules CI=true bun run test
+RUN CI=true npm test
 
 # tools and sources
 FROM tools AS base
@@ -119,8 +122,11 @@ RUN --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg go mod verify
 COPY ./api ./api
 COPY ./cmd ./cmd
 COPY ./internal ./internal
-COPY --from=frontend /internal/frontend/dist ./internal/frontend/dist
 RUN --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg go list -mod=readonly all >/dev/null
+
+# trim down lint-eslint-fmt-run output to contain only source files
+FROM scratch AS lint-eslint-fmt
+COPY --exclude=node_modules --from=lint-eslint-fmt-run /src /frontend
 
 # cleaned up specs and compiled versions
 FROM scratch AS generate-frontend
@@ -137,14 +143,24 @@ COPY .golangci.yml .
 ENV GOGC=50
 RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/root/.cache/golangci-lint,id=omni-inspector/root/.cache/golangci-lint,sharing=locked --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg golangci-lint run --config .golangci.yml
 
+# runs golangci-lint fmt
+FROM base AS lint-golangci-lint-fmt-run
+WORKDIR /src
+COPY .golangci.yml .
+ENV GOGC=50
+RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/root/.cache/golangci-lint,id=omni-inspector/root/.cache/golangci-lint,sharing=locked --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg golangci-lint fmt --config .golangci.yml
+RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/root/.cache/golangci-lint,id=omni-inspector/root/.cache/golangci-lint,sharing=locked --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg golangci-lint run --fix --issues-exit-code 0 --config .golangci.yml
+
 # runs govulncheck
 FROM base AS lint-govulncheck
 WORKDIR /src
-RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg govulncheck ./...
+COPY --chmod=0755 hack/govulncheck.sh ./hack/govulncheck.sh
+RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg ./hack/govulncheck.sh ./...
 
 # builds omni-inspector-linux-amd64
 FROM base AS omni-inspector-linux-amd64-build
 COPY --from=generate / /
+COPY --from=frontend /internal/frontend/dist ./internal/frontend/dist
 WORKDIR /src/cmd/omni-inspector
 ARG GO_BUILDFLAGS
 ARG GO_LDFLAGS
@@ -153,6 +169,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cach
 # builds omni-inspector-linux-arm64
 FROM base AS omni-inspector-linux-arm64-build
 COPY --from=generate / /
+COPY --from=frontend /internal/frontend/dist ./internal/frontend/dist
 WORKDIR /src/cmd/omni-inspector
 ARG GO_BUILDFLAGS
 ARG GO_LDFLAGS
@@ -169,6 +186,10 @@ FROM base AS unit-tests-run
 WORKDIR /src
 ARG TESTPKGS
 RUN --mount=type=cache,target=/root/.cache/go-build,id=omni-inspector/root/.cache/go-build --mount=type=cache,target=/go/pkg,id=omni-inspector/go/pkg --mount=type=cache,target=/tmp,id=omni-inspector/tmp go test -covermode=atomic -coverprofile=coverage.txt -coverpkg=${TESTPKGS} ${TESTPKGS}
+
+# clean golangci-lint fmt output
+FROM scratch AS lint-golangci-lint-fmt
+COPY --from=lint-golangci-lint-fmt-run /src .
 
 FROM scratch AS omni-inspector-linux-amd64
 COPY --from=omni-inspector-linux-amd64-build /omni-inspector-linux-amd64 /omni-inspector-linux-amd64

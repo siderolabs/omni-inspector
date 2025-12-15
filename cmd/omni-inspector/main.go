@@ -23,6 +23,7 @@ import (
 	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/cosi-project/runtime/pkg/state"
 	gateway "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/siderolabs/go-api-signature/pkg/client/interceptor"
 	"github.com/siderolabs/go-api-signature/pkg/pgp"
 	"github.com/siderolabs/go-api-signature/pkg/serviceaccount"
 	"github.com/siderolabs/omni/client/api/omni/resources"
@@ -31,6 +32,7 @@ import (
 	"github.com/siderolabs/omni/client/pkg/client/omni"
 	"github.com/siderolabs/omni/client/pkg/constants"
 	"github.com/siderolabs/omni/client/pkg/omni/resources/auth"
+	"github.com/siderolabs/omni/client/pkg/version"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -121,6 +123,7 @@ func run() error {
 	opts = append(opts, client.WithOmniClientOptions(omni.WithRetryLogger(logger)), client.WithInsecureSkipTLSVerify(true))
 
 	conn, err := initConnection(omniEndpoint,
+		serviceAccount,
 		opts...,
 	)
 	if err != nil {
@@ -153,7 +156,7 @@ func run() error {
 	return nil
 }
 
-func initConnection(endpoint string, opts ...client.Option) (*grpc.ClientConn, error) {
+func initConnection(endpoint, serviceAccountBase64 string, opts ...client.Option) (*grpc.ClientConn, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, err
@@ -178,6 +181,13 @@ func initConnection(endpoint string, opts ...client.Option) (*grpc.ClientConn, e
 
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	if serviceAccountBase64 != "" {
+		options.AuthInterceptor = interceptor.New(interceptor.Options{
+			ClientName:           version.Name + " " + version.Tag,
+			ServiceAccountBase64: serviceAccountBase64,
+		})
 	}
 
 	if options.AuthInterceptor != nil {

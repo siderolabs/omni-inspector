@@ -1,24 +1,29 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
 #
-# Generated on 2025-07-21T17:11:16Z by kres b869533-dirty.
+# Generated on 2025-12-15T12:18:08Z by kres 4b09af7.
 
 *
 !frontend/src
-!frontend/test
+!frontend/e2e
+!frontend/public
+!frontend/msw
+!frontend/.storybook
 !api
 !cmd
 !internal
 !frontend/*.json
-!frontend/*.toml
 !frontend/*.js
 !frontend/*.ts
 !frontend/*.html
-!frontend/*.ico
-!frontend/public
-!frontend/eslint.config.js
+!frontend/.npmrc
+!frontend/.editorconfig
+!frontend/.gitignore
+!frontend/.prettier*
+!frontend/eslint.config.ts
 !internal/frontend/frontend.go
 !go.mod
 !go.sum
 !.golangci.yml
 !README.md
 !.markdownlint.json
+!hack/govulncheck.sh

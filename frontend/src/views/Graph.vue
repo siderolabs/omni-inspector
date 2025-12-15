@@ -4,7 +4,7 @@ import type { Node, Edge } from '@vue-flow/core'
 import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { useLayout } from '../layout'
-import { DependencyGraphResponseNodeType, ResourceService } from '../api/resources/resources.pb'
+import { DependencyGraphRequest, DependencyGraphResponseNodeType, ResourceService } from '../api/resources/resources.pb'
 import ResourceNode from '../components/ResourceNode.vue'
 import ControllerNode from '../components/ControllerNode.vue'
 import { ArrowDownIcon, ArrowRightIcon, TagIcon } from '@heroicons/vue/24/outline'
@@ -12,6 +12,26 @@ import IconButton from '../components/IconButton.vue'
 import TextInput from '../components/Input.vue'
 import fuzzysearch from 'fuzzysearch-ts'
 import Checkbox from '../components/Checkbox.vue'
+import { RequestOptions } from '@/api/fetch.pb'
+import { TabsContent, TabsIndicator, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
+
+const addMetadata = (req: RequestInit, headers: Record<string, string>) => {
+  if (!req.headers) {
+    req.headers = new Headers()
+  }
+
+  const h = req.headers as Headers
+
+  for (const id in headers) {
+    h.append(`Grpc-Metadata-${id}`, headers[id].toString())
+  }
+}
+
+const withRuntime = (runtime: string) => {
+  return (req: RequestOptions) => {
+    addMetadata(req, { runtime: runtime })
+  }
+}
 
 enum EdgeType {
   OutputExclusive = 0,
@@ -29,6 +49,7 @@ const { layout } = useLayout()
 const nodes = ref<Node[]>([]);
 const edges = ref<Edge[]>([]);
 const controllers = ref<string[]>([])
+const resources = ref<string[]>([])
 
 const sidebarWidth: Ref<number | undefined> = ref() // default width in px
 const minWidth = 160
@@ -66,12 +87,20 @@ onMounted(async () => {
     const resp = await ResourceService.Controllers({})
 
     controllers.value = resp.controllers ?? [];
+
+    const defs = await ResourceService.List({
+      namespace: "meta",
+      type: "ResourceDefinitions.meta.cosi.dev",
+    }, withRuntime("Omni"))
+
+    resources.value = defs.items?.map(item => JSON.parse(item).spec.type as string) ?? []
   } finally {
     isLoading.value = false
   }
 })
 
 const shownControllers = ref<Record<string, boolean>>({})
+const shownResources = ref<Record<string, boolean>>({})
 const isLoading = ref(false)
 
 const labels:Record<EdgeType, string> = {
@@ -85,22 +114,31 @@ const labels:Record<EdgeType, string> = {
   [EdgeType.InputStrong]: "STRONG"
 }
 
-watch(shownControllers.value, async () => {
+watch([shownControllers.value, shownResources.value], async () => {
   const controllers = Object.keys(shownControllers.value).sort()
+  const resources = Object.keys(shownResources.value).sort()
 
   nodes.value = []
   edges.value = []
 
-  if (controllers.length === 0) {
+  if (controllers.length === 0 && resources.length === 0) {
     return
   }
 
   isLoading.value = true
 
+  const req: DependencyGraphRequest = {}
+
+  if (controllers.length > 0) {
+    req.controllers = controllers
+  }
+
+  if (resources.length > 0) {
+    req.resources = resources
+  }
+
   try {
-    const resp = await ResourceService.DependencyGraph({
-      controllers: controllers,
-    })
+    const resp = await ResourceService.DependencyGraph(req)
 
     nextTick(() => {
       nodes.value = resp.nodes?.map(item => {
@@ -199,6 +237,18 @@ const toggleControllerView = (name: string) => {
   }
 }
 
+const toggleResourceView = (name: string) => {
+  if (isLoading.value) {
+    return
+  }
+
+  if (shownResources.value[name]) {
+    delete shownResources.value[name]
+  } else {
+    shownResources.value[name] = true
+  }
+}
+
 const filterControllers = ref('');
 
 const filteredControllers = computed(() => {
@@ -207,6 +257,16 @@ const filteredControllers = computed(() => {
   }
 
   return controllers.value.filter(item => fuzzysearch(filterControllers.value.toLowerCase(), item.toLowerCase()))
+})
+
+const filterResources = ref('');
+
+const filteredResources = computed(() => {
+  if (filterResources.value === '') {
+    return resources.value;
+  }
+
+  return resources.value.filter(item => fuzzysearch(filterResources.value.toLowerCase(), item.toLowerCase()))
 })
 
 const toggleEdgeLabels = () => {
@@ -231,19 +291,55 @@ const toggleEdgeLabels = () => {
             <TagIcon class="w-3 h-3"/>
           </IconButton>
         </div>
-        <div class="flex items-center gap-2 px-4 py-2 border-b border-naturals-N5">
-          <TextInput v-model="filterControllers" class="w-full"/>
-        </div>
       </div>
 
-      <div class="flex-1 flex flex-col gap-1 overflow-y-auto overflow-x-hidden h-full"
+      <TabsRoot class="flex-1 flex flex-col gap-1 overflow-y-auto overflow-x-hidden h-full"
+        default-value="controllers"
         :style="{ width: sidebarWidth ? `${sidebarWidth}px` : 'auto' }">
-        <Checkbox v-for="controller in filteredControllers" :key="controller"
-          class="px-4 py-2 hover:bg-naturals-N4 transition-colors duration-200 cursor-pointer text-xs select-none"
-          :checked="shownControllers[controller]" @click="() => toggleControllerView(controller)"
-          :label="controller"
-          />
-      </div>
+        <TabsList
+          class="relative shrink-0 flex border-b border-naturals-N6"
+        >
+          <TabsIndicator class="absolute px-8 left-0 h-[2px] bottom-0 w-[--reka-tabs-indicator-size] translate-x-[--reka-tabs-indicator-position] translate-y-[1px] rounded-full transition-[width,transform] duration-300">
+            <div class="bg-primary-P2 w-full h-full"/>
+          </TabsIndicator>
+          <TabsTrigger
+            class="tab-button"
+            value="controllers"
+          >
+            Controllers
+          </TabsTrigger>
+          <TabsTrigger
+            class="tab-button"
+            value="resources"
+          >
+            Resources
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="controllers"
+        >
+          <div class="flex items-center gap-2 px-4 py-2 border-b border-naturals-N5">
+            <TextInput v-model="filterControllers" class="w-full"/>
+          </div>
+          <Checkbox v-for="controller in filteredControllers" :key="controller"
+            class="px-4 py-2 hover:bg-naturals-N4 transition-colors duration-200 cursor-pointer text-xs select-none"
+            :checked="shownControllers[controller]" @click="() => toggleControllerView(controller)"
+            :label="controller"
+            />
+        </TabsContent>
+        <TabsContent
+          value="resources"
+        >
+          <div class="flex items-center gap-2 px-4 py-2 border-b border-naturals-N5">
+            <TextInput v-model="filterResources" class="w-full"/>
+          </div>
+          <Checkbox v-for="resource in filteredResources" :key="resource"
+            class="px-4 py-2 hover:bg-naturals-N4 transition-colors duration-200 cursor-pointer text-xs select-none"
+            :checked="shownResources[resource]" @click="() => toggleResourceView(resource)"
+            :label="resource"
+            />
+        </TabsContent>
+      </TabsRoot>
     </div>
     <div style="width: 4px" class="bg-naturals-N3 hover:bg-primary-P2 transition-colors cursor-col-resize"
       @mousedown="startResize"
@@ -344,5 +440,9 @@ button {
 
 .cosi-flow.hide-edge-labels .vue-flow__edge-text {
   @apply opacity-0;
+}
+
+.tab-button {
+  @apply px-3 py-2 flex-1 flex items-center justify-center text-sm leading-none select-none data-[state=active]:text-naturals-N14 outline-none cursor-pointer text-naturals-N11 border-none;
 }
 </style>
